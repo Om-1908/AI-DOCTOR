@@ -1,9 +1,16 @@
 import pandas as pd
 import numpy as np
 import joblib
+import os
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from fastapi import HTTPException
+from ..core.config import settings
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class ModelService:
     def __init__(self):
@@ -26,9 +33,14 @@ class ModelService:
     def _load_models(self):
         """Load the trained ML model"""
         try:
-            model_path = Path(__file__).parent.parent.parent.parent / "Models" / "svc.pkl"
+            model_path = settings.MODEL_PATH
+            logger.info(f"Loading model from: {model_path}")
+            if not os.path.exists(model_path):
+                raise FileNotFoundError(f"Model file not found at {model_path}")
             self.model = joblib.load(model_path)
+            logger.info("Model loaded successfully")
         except Exception as e:
+            logger.error(f"Failed to load model: {str(e)}")
             raise HTTPException(
                 status_code=500,
                 detail=f"Failed to load the model: {str(e)}"
@@ -37,7 +49,16 @@ class ModelService:
     def _load_data(self):
         """Load all required data files"""
         try:
-            data_dir = Path(__file__).parent.parent.parent.parent / "Data.csv"
+            logger.info("Loading data files...")
+            data_dir = settings.DATA_DIR
+            logger.info(f"Data directory: {data_dir}")
+            
+            # Verify data directory exists
+            if not os.path.exists(data_dir):
+                raise FileNotFoundError(f"Data directory not found at {data_dir}")
+                
+            # List files in the data directory for debugging
+            logger.info(f"Files in data directory: {os.listdir(data_dir)}")
             
             # Load data files
             self.symptoms_df = pd.read_csv(data_dir / "symptoms_df.csv")
