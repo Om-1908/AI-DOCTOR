@@ -5,7 +5,8 @@ WORKDIR /home/user/app
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    SPACE_ID=ai-doctor-app
+    SPACE_ID=ai-doctor-app \
+    IS_HF_SPACE="true"
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -13,20 +14,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first to leverage Docker cache
+# Install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy the application code
-COPY . .
 
 # Create necessary directories
 RUN mkdir -p /home/user/app/Models \
     && mkdir -p /home/user/app/Data.csv
 
-# Copy model and data files
-COPY Models/svc.pkl /home/user/app/Models/svc.pkl
+# Copy model and data files first (to leverage Docker cache)
+COPY Models/ /home/user/app/Models/
 COPY Data.csv/ /home/user/app/Data.csv/
+
+# Copy application code
+COPY . .
+
+# Set correct permissions
+RUN chmod -R a+rwx /home/user/app
 
 # Set working directory to the app directory
 WORKDIR /home/user/app
@@ -35,4 +39,4 @@ WORKDIR /home/user/app
 EXPOSE 7860
 
 # Command to run the application
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "7860"]
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "7860", "--reload"]

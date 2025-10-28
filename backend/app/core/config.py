@@ -20,11 +20,16 @@ class Settings(BaseSettings):
         BASE_DIR: Path = Path(__file__).parent.parent.parent.parent  # Local dev path
     
     # Model path
-    MODEL_DIR: Path = BASE_DIR / "Models"
-    MODEL_PATH: str = str(MODEL_DIR / "svc.pkl")
+    if IS_HF_SPACE:
+        MODEL_PATH: str = str(BASE_DIR / "Models" / "svc.pkl")
+    else:
+        MODEL_DIR: Path = BASE_DIR / "Models"
+        MODEL_PATH: str = str(MODEL_DIR / "svc.pkl")
     
     # Data file paths
-    if IS_CONTAINER:
+    if IS_HF_SPACE:
+        DATA_DIR: Path = BASE_DIR / "Data.csv"
+    elif IS_CONTAINER:
         DATA_DIR: Path = Path("/app/Data.csv")  # Container path
     else:
         DATA_DIR: Path = BASE_DIR / "Data.csv"  # Local dev path
