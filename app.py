@@ -32,7 +32,7 @@ app = FastAPI(
     title="AI Doctor API",
     description="API for AI Doctor application",
     version="1.0.0",
-    docs_url="/docs",
+    docs_url="/",  # Serve docs at root
     redoc_url=None
 )
 
@@ -64,13 +64,14 @@ api_router.include_router(health.router, tags=["health"])
 api_router.include_router(predict.router, prefix="/predict", tags=["predict"])
 app.include_router(api_router)
 
-# Root endpoint - Redirect to docs
-from fastapi.responses import RedirectResponse
-
+# Root endpoint - Now serves the Swagger UI directly
 @app.get("/", include_in_schema=False)
 async def root():
-    """Redirect root to API docs"""
-    return RedirectResponse(url="/docs")
+    """Root endpoint - Serves the API documentation"""
+    return {
+        "message": "AI Doctor API is running. Use the interactive documentation below.",
+        "api_docs": "/"
+    }
 
 # Global exception handler
 from fastapi.responses import JSONResponse

@@ -1,12 +1,15 @@
 FROM python:3.10-slim
 
-WORKDIR /home/user/app
+# Set working directory
+WORKDIR /app
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     SPACE_ID=ai-doctor-app \
-    IS_HF_SPACE="true"
+    IS_HF_SPACE="true" \
+    MODEL_PATH="/app/Models/svc.pkl" \
+    DATA_DIR="/app/Data.csv"
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -14,29 +17,32 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
+# Copy requirements and install dependencies first (for better caching)
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Create necessary directories
-RUN mkdir -p /home/user/app/Models \
-    && mkdir -p /home/user/app/Data.csv
+RUN mkdir -p /app/Models \
+    && mkdir -p /app/Data.csv
 
-# Copy model and data files first (to leverage Docker cache)
-COPY Models/ /home/user/app/Models/
-COPY Data.csv/ /home/user/app/Data.csv/
+# Copy model and data files
+COPY Models/svc.pkl /app/Models/
+COPY Data.csv/ /app/Data.csv/
 
 # Copy application code
 COPY . .
 
-# Set correct permissions
-RUN chmod -R a+rwx /home/user/app
+# Verify files were copied correctly
+RUN echo "=== Verifying files ===" && \
+    ls -la /app/Models/ && \
+    ls -la /app/Data.csv/ && \
+    echo "====================="
 
-# Set working directory to the app directory
-WORKDIR /home/user/app
+# Set correct permissions
+RUN chmod -R a+rwx /app
 
 # Expose the port the app runs on
 EXPOSE 7860
 
 # Command to run the application
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "7860", "--reload"]
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "7860"]
