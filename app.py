@@ -1,52 +1,58 @@
 import os
-from fastapi import FastAPI, Request, status, APIRouter
+from fastapi import FastAPI, Request, status, APIRouter, HTTPException
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import JSONResponse
 from pathlib import Path
 import logging
+import sys
 from typing import Any, Dict
+import os
+
+# Determine base directory
+BASE_DIR = Path(__file__).parent
+
+# Add the backend directory to the Python path
+sys.path.append(str(Path(__file__).parent / "backend"))
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('app.log')
+    ]
 )
 logger = logging.getLogger(__name__)
 
-# Initialize FastAPI app
+# Create FastAPI app
 app = FastAPI(
     title="AI Doctor API",
-    description="AI-powered disease prediction and health information system",
+    description="API for AI Doctor application",
     version="1.0.0",
-    docs_url="/api/docs",
-    redoc_url="/api/redoc",
-    openapi_url="/api/openapi.json",
+    docs_url="/docs",
+    redoc_url=None
 )
 
-# Get the root directory
-BASE_DIR = Path(__file__).parent
-
-# CORS middleware configuration
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, replace with specific origins
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],  # Allow all methods
-    allow_headers=["*"],  # Allow all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# Mount static files
-static_dir = BASE_DIR / "static"
-if not static_dir.exists():
-    static_dir.mkdir(parents=True, exist_ok=True)
-app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+# Set up static files
+static_dir = Path(__file__).parent / "static"
+static_dir.mkdir(exist_ok=True, parents=True)
+app.mount("/static", StaticFiles(directory=str(static_dir), html=True), name="static")
 
-# Setup templates
-template_dir = BASE_DIR / "templates"
-if not template_dir.exists():
-    template_dir.mkdir(parents=True, exist_ok=True)
+# Set up templates
+template_dir = Path(__file__).parent / "templates"
+template_dir.mkdir(exist_ok=True, parents=True)
 templates = Jinja2Templates(directory=str(template_dir))
 
 # Include API routers
@@ -58,24 +64,23 @@ api_router.include_router(health.router, tags=["health"])
 api_router.include_router(predict.router, prefix="/predict", tags=["predict"])
 app.include_router(api_router)
 
-# Root endpoint
+# Root endpoint - Redirect to docs
+from fastapi.responses import RedirectResponse
+
 @app.get("/", include_in_schema=False)
-async def root() -> Dict[str, str]:
-    """Root endpoint that provides API information"""
-    return {
-        "message": "Welcome to AI Doctor API",
-        "docs": "/api/docs",
-        "version": "1.0.0"
-    }
+async def root():
+    """Redirect root to API docs"""
+    return RedirectResponse(url="/docs")
 
 # Global exception handler
+from fastapi.responses import JSONResponse
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Global exception handler for uncaught exceptions"""
     logger.error(f"Unhandled exception: {str(exc)}", exc_info=True)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"detail": "Internal server error"},
+        content={"message": f"Internal server error: {str(exc)}"},
     )
 
 # Health check endpoint for load balancers
@@ -93,9 +98,19 @@ async def startup_event():
     # Create necessary directories if they don't exist
     for directory in ["Models", "Data.csv", "static", "templates"]:
         path = BASE_DIR / directory
-        if not path.exists():
-            path.mkdir(parents=True, exist_ok=True)
-            logger.info(f"Created directory: {path}")
+        path.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Directory ready: {path}")
+    
+    # Verify important files exist
+    required_files = [
+        BASE_DIR / "Models" / "svc.pkl",
+        BASE_DIR / "Data.csv" / "symptoms_df.csv",
+        BASE_DIR / "Data.csv" / "training.csv"
+    ]
+    
+    for file_path in required_files:
+        if not file_path.exists():
+            logger.warning(f"Required file not found: {file_path}")
     
     logger.info("AI Doctor API started successfully")
 
@@ -112,7 +127,7 @@ if __name__ == "__main__":
     uvicorn.run(
         "app:app",
         host=os.getenv("HOST", "0.0.0.0"),
-        port=int(os.getenv("PORT", 8000)),
+        port=int(os.getenv("PORT", 7860)),  # Default port for Hugging Face Spaces
         reload=True,
         log_level="info",
         workers=int(os.getenv("WEB_CONCURRENCY", 1)),

@@ -1,0 +1,21 @@
+image: python:3.10-slim
+variables:
+  HF_HOME: /home/user/.cache/huggingface
+  PYTHONPATH: /home/user/app
+  PORT: 7860
+  WORKSPACE: /home/user/app
+  WORKDIR: /home/user/app
+  IS_HF_SPACE: "true"
+
+# This will be used to create a new Space on the Hub
+# You can remove it if you're using an existing Space
+space:
+  title: "AI Doctor"
+  emoji: "💊"
+  colorFrom: "blue"
+  colorTo: "indigo"
+  sdk: docker
+  app_port: 7860
+  license: mit
+  app_file: app.py
+  pinned: true

@@ -2,8 +2,9 @@ from pydantic_settings import BaseSettings
 from pathlib import Path
 import os
 
-# Determine if we're running in a container
-IS_CONTAINER = os.environ.get('DOCKER_CONTAINER', 'false').lower() == 'true'
+# Determine the environment
+IS_HF_SPACE = os.environ.get('SPACE_ID') is not None
+IS_CONTAINER = os.environ.get('DOCKER_CONTAINER', 'false').lower() == 'true' or IS_HF_SPACE
 
 class Settings(BaseSettings):
     # API settings
@@ -11,7 +12,9 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "AI Doctor API"
     
     # Base directory - points to the project root
-    if IS_CONTAINER:
+    if IS_HF_SPACE:
+        BASE_DIR: Path = Path("/home/user/app")  # Hugging Face Spaces path
+    elif IS_CONTAINER:
         BASE_DIR: Path = Path("/app")  # Container path
     else:
         BASE_DIR: Path = Path(__file__).parent.parent.parent.parent  # Local dev path
